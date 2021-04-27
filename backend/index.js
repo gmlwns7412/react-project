@@ -6,6 +6,9 @@ const cookieParser = require('cookie-parser');
 const {auth} =require('./middleware/auth');
 const {User} = require('./models/User');
 const config = require('./config/key');
+const client = require('./routes/mysql');
+
+
 
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());
@@ -17,7 +20,6 @@ mongoose.connect(config.mongoURI,{
 })
 .then(()=>console.log('MONGO HHIHIHIH!!!!!'))
 .catch(err => console.log(err))
-
 
 
 app.get('/', (req,res)=>res.send('hiddd'))
@@ -93,7 +95,105 @@ app.get('/api/users/logout',auth, (req, res) =>{
         })
 })
 
+// ======================자유 게시판 작성===============================
+app.post('/api/board/write', function(req, res){
+    client.query('INSERT INTO HealthK_board (title, content, writer) values (?,?,?)',
+    [req.body.title, req.body.content, req.body.writer], function(err, data){
+        if(err) throw res.json({success:false, err});        
+        res.send({success:true})
+    })
+});
 
+// ======================장터 게시판 작성===============================
+app.post('/api/market/write', function(req, res){
+    client.query('INSERT INTO HealthK_Market (title, content, writer) values (?,?,?)',
+    [req.body.title, req.body.content, req.body.writer], function(err, data){
+        if(err) throw res.json({success:false, err});        
+        res.send({success:true})
+    })
+});
 
+// ======================자유 게시판 목록===============================
+app.get('/api/board', function(req, res){
+    client.query('SELECT * FROM HealthK_board LIMIT 10', function(err, data){
+        if(err) throw res.json({success:false,err});
+    res.status(200).send(data)
+    });
+});
+
+// ======================장터 게시판 목록===============================
+app.get('/api/market', function(req, res){
+    client.query('SELECT * FROM HealthK_Market LIMIT 10', function(err, data){
+        if(err) throw res.json({success:false,err});
+    res.status(200).send(data)
+    });
+});
+
+// ======================자유 게시판 댓글 작성===========================
+app.post('/api/board/reply_write', function(req, res){
+    client.query('INSERT INTO HealthK_board_reply (board_no, reply_writer, reply_content) values (?,?,?)',
+    [req.body.board_no, req.body.writer, req.body.reply_content], function(err, data){
+        if(err) throw res.json({success:false, err});
+        res.status(200).send({success:true});
+    });
+});
+
+// ======================장터 게시판 댓글 작성===========================
+app.post('/api/market/reply_write', function(req, res){
+    client.query('INSERT INTO HealthK_Market_reply (board_no, reply_writer, reply_content) values (?,?,?)',
+    [req.body.board_no, req.body.writer, req.body.reply_content], function(err, data){
+        if(err) throw res.json({success:false, err});
+        res.status(200).send({success:true});
+    });
+});
+
+// ======================자유 게시판 게시글 보기 ==========================
+app.get('/api/board/view/:board_no', function(req, res){
+    client.query(`UPDATE HealthK_board SET views=views+1 WHERE no=${req.params.board_no}`)
+    client.query(`SELECT * FROM HealthK_board WHERE no=${req.params.board_no}`, function(err, content){
+        client.query(`SELECT * FROM HealthK_board_reply WHERE board_no=${req.params.board_no}`, function(err1, reply){
+            if(err) throw res.json({success:false, err});
+            else if(err1) throw res.json({success:false, err1});
+            res.status(200).send({success:true, content , reply})
+        });
+    });
+});
+
+// ======================장터 게시판 게시글 보기 ==========================
+app.get('/api/market/view/:board_no', function(req, res){
+    client.query(`UPDATE HealthK_Market SET views=views+1 WHERE no=${req.params.board_no}`)
+    client.query(`SELECT * FROM HealthK_Market WHERE no=${req.params.board_no}`, function(err, content){
+        client.query(`SELECT * FROM HealthK_Market_reply WHERE board_no=${req.params.board_no}`, function(err1, reply){
+            if(err) throw res.json({success:false, err});
+            else if(err1) throw res.json({success:false, err1});
+            res.status(200).send({success:true, content , reply})
+        });
+    });
+});
+
+// ======================자유 게시판 게시글 삭제 ==========================
+app.delete('/api/board/delete/:board_no', function(req, res){
+    client.query(`DELETE FROM HealthK_board WHERE no=${req.params.board_no}`, function(err, data){
+        client.query(`DELETE FROM HealthK_board_reply where board_no=${req.params.board_no}`, function(err1, data1){
+            if(err) throw res.json({success:false, err});
+            else if(err1) throw res.json({success:false, err1});
+            res.status(200).send({success:true})
+        });
+    });
+});
+
+// ======================장터 게시판 게시글 삭제 ==========================
+app.delete('/api/market/delete/:board_no', function(req, res){
+    client.query(`DELETE FROM HealthK_Market WHERE no=${req.params.board_no}`, function(err, data){
+        client.query(`DELETE FROM HealthK_Market_reply where board_no=${req.params.board_no}`, function(err1, data1){
+            if(err) throw res.json({success:false, err});
+            else if(err1) throw res.json({success:false, err1});
+            res.status(200).send({success:true})
+        })
+    })
+})
+
+// ======================유저 몸무게 업데이트 =============================
+app.post('/api/users/change_weight')
 
 app.listen(port, ()=>console.log(`gogo port ${port}!`))
